@@ -23,6 +23,9 @@ object Main extends App {
   metroApi.agencies().onComplete {
     case Success(agencies) =>
       for (agency <- agencies) {
+        val uniqueStops = collection.mutable.Set.empty[String]
+
+
         val routes = Await.result(metroApi.routes(agency), 5.seconds)
         val vehicles = Await.result(metroApi.vehicles(agency), 5.seconds)
 
@@ -34,7 +37,7 @@ object Main extends App {
                 List.empty
             }.map((route, _))
 
-        val stops = Await.result(Future.sequence(futureStops), 10.seconds).toMap
+        val stops = Await.result(Future.sequence(futureStops), 60.seconds).toMap
 
         println(agency)
         for (route <- routes) {
@@ -43,6 +46,8 @@ object Main extends App {
             maybeStop <- stops.get(route)
             stop <- maybeStop
           } {
+            uniqueStops += stop.id.getOrElse("")
+
             println(s"\t\t- $stop")
           }
         }
@@ -52,6 +57,12 @@ object Main extends App {
         for (vehicle <- vehicles) {
           println(s"\t- $vehicle")
         }
+
+
+        println("Summary: --------------------------")
+        println(s"\t- Vehicles: ${vehicles.size}")
+        println(s"\t- Routes: ${routes.size}")
+        println(s"\t- Stops: ${uniqueStops.size}")
       }
 
     case Failure(ex) => ex.printStackTrace()
