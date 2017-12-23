@@ -50,7 +50,7 @@ object Json {
                 ),
               heading = Direction((json \ "heading").as[Int]),
               predictable = (json \ "predictable").as[Boolean],
-              reported = LocalDateTime.now().minusSeconds((json \ "seconds_since_report").as[Long])
+              lastReportInSecs = (json \ "seconds_since_report").as[Int]
             )
         )
       JsSuccess(vehicle)
