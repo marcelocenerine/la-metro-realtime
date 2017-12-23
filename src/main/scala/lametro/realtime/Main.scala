@@ -1,73 +1,42 @@
 package lametro.realtime
 
-import java.time.Clock
-
 import akka.actor.ActorSystem
+import akka.pattern.ask
 import akka.stream.ActorMaterializer
-import lametro.realtime.client.MetroApi
+import akka.util.Timeout
+import lametro.realtime.Messages.{RespondAgencies, _}
 
-import scala.concurrent.{Await, Future}
-import scala.io.StdIn
-import scala.util.{Failure, Success}
+import scala.concurrent.Await
 import scala.concurrent.duration._
+import scala.io.StdIn
+import scala.language.postfixOps
 
 object Main extends App {
 
   implicit val system = ActorSystem("la-metro")
   implicit val materializer = ActorMaterializer()
   implicit val ec = system.dispatcher
-  implicit val systemClock = Clock.systemDefaultZone()
+  implicit val timeout = Timeout(10 seconds)
 
-  val metroApi = new MetroApi()
+  val metroService = system.actorOf(MetroServiceActor.props, "metro-service")
 
-  metroApi.agencies().onComplete {
-    case Success(agencies) =>
-      for (agency <- agencies) {
-        val uniqueStops = collection.mutable.Set.empty[String]
+  val RespondAgencies(agencies) = Await.result(metroService ? GetAgencies, 5 seconds)
 
+  for {
+    agency <- agencies
+  } {
+    Thread.sleep(5000) // wait for syncing
+    val response = Await.result(metroService ? GetVehicles(agency.id), 2 seconds)
+    println(s"Agency: $agency")
+    response match {
+      case RespondVehicles(vehicles) =>
+        println("Vehicles:")
+        vehicles.foreach(v => println(s"\t- $v"))
 
-        val routes = Await.result(metroApi.routes(agency), 5.seconds)
-        val vehicles = Await.result(metroApi.vehicles(agency), 5.seconds)
-
-        val futureStops =
-          for (route <- routes)
-            yield metroApi.stops(agency, route).recover {
-              case e =>
-                e.printStackTrace()
-                List.empty
-            }.map((route, _))
-
-        val stops = Await.result(Future.sequence(futureStops), 60.seconds).toMap
-
-        println(agency)
-        for (route <- routes) {
-          println(s"\t- $route")
-          for {
-            maybeStop <- stops.get(route)
-            stop <- maybeStop
-          } {
-            uniqueStops += stop.id.getOrElse("")
-
-            println(s"\t\t- $stop")
-          }
-        }
-
-        println()
-        println("* Vehicles:")
-        for (vehicle <- vehicles) {
-          println(s"\t- $vehicle")
-        }
-
-
-        println("Summary: --------------------------")
-        println(s"\t- Vehicles: ${vehicles.size}")
-        println(s"\t- Routes: ${routes.size}")
-        println(s"\t- Stops: ${uniqueStops.size}")
-      }
-
-    case Failure(ex) => ex.printStackTrace()
+      case NotInSync =>
+        println("Vehicles not in sync")
+    }
   }
-
 
   println(">>> Press ENTER to exit <<<")
   StdIn.readLine()
