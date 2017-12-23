@@ -29,12 +29,7 @@ trait PlayJsonOps {
 }
 
 object PlayJsonOps extends PlayJsonOps {
-
   case class PlayJsonError(error: JsError) extends RuntimeException {
     override def getMessage: String = JsError.toJson(error).toString()
-  }
-
-  implicit class PrettyPrint[T: Writes](o: T) {
-    def toJsonStr: String = Json.prettyPrint(Json.toJson(o))
   }
 }
