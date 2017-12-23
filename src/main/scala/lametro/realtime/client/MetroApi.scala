@@ -14,7 +14,7 @@ import lametro.realtime.json.PlayJsonOps._
 
 import scala.concurrent.{Future, Promise}
 
-class MetroApi(implicit system: ActorSystem, materializer: ActorMaterializer) {
+class MetroApi private(implicit system: ActorSystem, materializer: ActorMaterializer) {
 
   private implicit val ec = system.dispatcher
 
@@ -75,4 +75,6 @@ class MetroApi(implicit system: ActorSystem, materializer: ActorMaterializer) {
 
 object MetroApi {
   private val BaseUrl = "http://api.metro.net"
+
+  def apply(implicit system: ActorSystem, materializer: ActorMaterializer): MetroApi = new MetroApi()
 }
