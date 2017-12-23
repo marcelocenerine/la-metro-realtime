@@ -16,7 +16,8 @@ private class FleetActor(agency: Agency, clock: Clock) extends Actor with ActorL
 
   private implicit val system = context.system
   private implicit val ec = context.dispatcher
-  private val metroApi = MetroApi(system, ActorMaterializer())
+  private implicit val materializer = ActorMaterializer()
+  private val metroApi = MetroApi()
   private var lastRefresh: Option[Instant] = None
   private var vehiclesById = Map.empty[String, Vehicle]
 
@@ -35,7 +36,10 @@ private class FleetActor(agency: Agency, clock: Clock) extends Actor with ActorL
         self ! SyncFailure
     }
 
-  override def postStop(): Unit = log.info("Fleet actor {} stopped", agency.id)
+  override def postStop(): Unit = {
+    materializer.shutdown()
+    log.info("Fleet actor {} stopped", agency.id)
+  }
 
   override def receive: Receive = receiveWhenNotSynced
 

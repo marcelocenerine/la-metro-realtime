@@ -76,5 +76,5 @@ class MetroApi private(implicit system: ActorSystem, materializer: ActorMaterial
 object MetroApi {
   private val BaseUrl = "http://api.metro.net"
 
-  def apply(implicit system: ActorSystem, materializer: ActorMaterializer): MetroApi = new MetroApi()
+  def apply()(implicit system: ActorSystem, materializer: ActorMaterializer): MetroApi = new MetroApi()
 }

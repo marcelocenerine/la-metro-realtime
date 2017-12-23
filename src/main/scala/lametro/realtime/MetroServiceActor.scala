@@ -13,7 +13,8 @@ class MetroServiceActor extends Actor with ActorLogging {
 
   private implicit val system = context.system
   private implicit val ec = context.dispatcher
-  private val metroApi = MetroApi(system, ActorMaterializer())
+  private implicit val materializer = ActorMaterializer()
+  private val metroApi = MetroApi()
   private var agencies: List[Agency] = _
   private var agencyActors: Map[String, ActorRef] = _
 
@@ -26,7 +27,10 @@ class MetroServiceActor extends Actor with ActorLogging {
     log.info("MetroService actor started")
   }
 
-  override def postStop(): Unit = log.info("MetroService actor stopped")
+  override def postStop(): Unit = {
+    materializer.shutdown()
+    log.info("MetroService actor stopped")
+  }
 
   override def receive: Receive = {
     case GetAgencies =>
