@@ -1,5 +1,6 @@
 package lametro.realtime.json
 
+import akka.http.scaladsl.marshalling.{Marshaller, ToEntityMarshaller}
 import akka.http.scaladsl.model.MediaTypes.`application/json`
 import akka.http.scaladsl.server.{RejectionError, ValidationRejection}
 import akka.http.scaladsl.unmarshalling.{FromEntityUnmarshaller, Unmarshaller}
@@ -26,6 +27,14 @@ trait PlayJsonOps {
 
     jsonStringUnmarshaller.map(data => read(Json.parse(data)))
   }
+
+  private val jsonStringMarshaller =
+    Marshaller.stringMarshaller(`application/json`)
+
+  implicit def marshaller[A : Writes]: ToEntityMarshaller[A] =
+    jsonStringMarshaller
+      .compose(Json.prettyPrint)
+      .compose(implicitly[Writes[A]].writes)
 }
 
 object PlayJsonOps extends PlayJsonOps {
