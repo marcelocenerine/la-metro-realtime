@@ -38,29 +38,44 @@ object WebServer {
         )),
       name = "metro-service")
 
-    val route =
-      path("agencies") {
-        get {
-          complete {
-            (metroService ? GetAgencies).map {
-              case RespondAgencies(agencies) => agencies
-            }
-          }
+    val staticRoutes =
+      get {
+        pathEndOrSingleSlash {
+          getFromResource("static/index.html")
         }
       } ~
-        path("agencies" ~ Slash ~ Segment ~ Slash ~ "vehicles") { id =>
+      get {
+        path("images" ~ Slash ~ Remaining) { file =>
+          getFromResource(s"static/images/$file")
+        }
+      }
+
+    val apiRoutes =
+      pathPrefix("api") {
+        path("agencies") {
           get {
             complete {
-              (metroService ? GetVehicles(id)).map {
-                case RespondVehicles(vehicles) => vehicles
-//                case NotInSync => "Try again"
+              (metroService ? GetAgencies).map {
+                case RespondAgencies(agencies) => agencies
               }
             }
           }
-        }
+        } ~
+          path("agencies" ~ Slash ~ Segment ~ Slash ~ "vehicles") { id =>
+            get {
+              complete {
+                (metroService ? GetVehicles(id)).map {
+                  case RespondVehicles(vehicles) => vehicles
+                  //                case NotInSync => "Try again"
+                }
+              }
+            }
+          }
+      }
 
+    val routes = staticRoutes ~ apiRoutes
 
-    val bindingFuture = Http().bindAndHandle(route, Interface, Port)
+    val bindingFuture = Http().bindAndHandle(routes, Interface, Port)
 
     println(s"Server online at http://$Interface:$Port")
 

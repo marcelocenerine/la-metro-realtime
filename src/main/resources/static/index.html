@@ -1,0 +1,111 @@
+<!--
+
+WORK IN PROGRESS. JUST USED FOR TESTING PURPOSES FOR NOW
+
+-->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        #map {
+            height: 600px;
+            width: 100%;
+        }
+    </style>
+    <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js"></script>
+</head>
+<body>
+<h3>Los Angeles Metro Realtime</h3>
+<div id="map"></div>
+<script>
+    function initMap() {
+        var losAngeles = {lat: 34.0522, lng: -118.2437};
+        var map = new google.maps.Map(document.getElementById('map'), {
+            zoom: 10,
+            center: losAngeles
+        });
+        var infowindow = new google.maps.InfoWindow();
+        var vehicleIcon = {
+            url: 'images/bus_pointer.svg',
+            scaledSize: new google.maps.Size(26.6, 35)
+        };
+        var markers = {};
+        var currentVehicles = {}
+
+        function createMarker(id, lat, lon, title) {
+            var marker = new google.maps.Marker({
+                position: new google.maps.LatLng(lat, lon),
+                title: title,
+                icon: vehicleIcon,
+                map: map
+            });
+
+            google.maps.event.addListener(marker, 'click', (function(marker) {
+                return function() {
+                    infowindow.setContent(title);
+                    infowindow.open(map, marker);
+                };
+            })(marker));
+
+            markers[id] = marker;
+        }
+
+        function updateMarker(id, lat, lon) {
+            markers[id].setPosition(new google.maps.LatLng(lat, lon));
+        }
+
+        function removeMarker(id) {
+            markers[id].setMap(null);
+            delete markers[id];
+        }
+
+        function addVehicle(vehicle) {
+            currentVehicles[vehicle.id] = vehicle;
+            createMarker(vehicle.id, vehicle.status.position.lat, vehicle.status.position.lon, vehicle.servicing.routeId);
+        }
+
+        function removeVehicle(vehicle) {
+            removeMarker(vehicle.id);
+            delete currentVehicles[vehicle.id];
+        }
+
+        function updateVehicle(vehicle) {
+            updateMarker(vehicle.id, vehicle.status.position.lat, vehicle.status.position.lon);
+            currentVehicles[vehicle.id] = vehicle;
+        }
+
+        setInterval(function(){
+            $.getJSON('api/agencies/lametro-rail/vehicles', function(freshVehicles) {
+                var added = 0;
+                var removed = 0;
+                var updated = 0;
+
+                $.each(freshVehicles, function(index, fresh) {
+                    if (fresh.id in currentVehicles) {
+                        if (JSON.stringify(currentVehicles[fresh.id]) != JSON.stringify(fresh)) {
+                            updateVehicle(fresh);
+                            updated++;
+                        }
+                    } else {
+                        addVehicle(fresh);
+                        added++;
+                    }
+                });
+
+                $.each(currentVehicles, function(id, current) {
+                    if (!freshVehicles.find(function(c) { return c.id == id; })) {
+                        removeVehicle(current);
+                        removed++;
+                    }
+                });
+
+                console.log("Update done. received=" + freshVehicles.length + "; added=" + added + "; removed=" + removed + "; updated=" + updated);
+            });
+        }, 5000);
+    }
+</script>
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyAQftpBSaMVPXUWPimQ4QdcUb8foJgV6P4&callback=initMap">
+</script>
+</body>
+</html>
