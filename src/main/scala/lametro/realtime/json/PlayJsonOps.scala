@@ -33,7 +33,7 @@ trait PlayJsonOps {
 
   implicit def marshaller[A : Writes]: ToEntityMarshaller[A] =
     jsonStringMarshaller
-      .compose(Json.prettyPrint)
+      .compose(Json.stringify)
       .compose(implicitly[Writes[A]].writes)
 }
 
