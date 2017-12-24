@@ -1,12 +1,10 @@
 package lametro.realtime.client
 
-import java.time.LocalDateTime
-
 import lametro.realtime._
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-object Json {
+private [client] object Reads {
 
   implicit val agencyReads: Reads[Agency] = (
     (JsPath \ "id").read[String] and

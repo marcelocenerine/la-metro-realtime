@@ -8,7 +8,7 @@ import akka.http.scaladsl.unmarshalling.Unmarshal
 import akka.stream.ActorMaterializer
 import akka.util.ByteString
 import lametro.realtime._
-import lametro.realtime.client.Json._
+import lametro.realtime.client.Reads._
 import lametro.realtime.client.MetroApi._
 import lametro.realtime.json.PlayJsonOps._
 
