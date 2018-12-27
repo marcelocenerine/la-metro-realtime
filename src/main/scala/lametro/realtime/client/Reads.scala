@@ -4,7 +4,7 @@ import lametro.realtime._
 import play.api.libs.functional.syntax._
 import play.api.libs.json._
 
-private [client] object Reads {
+private[client] object Reads {
 
   implicit val agencyReads: Reads[Agency] = (
     (JsPath \ "id").read[String] and

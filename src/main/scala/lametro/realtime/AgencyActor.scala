@@ -1,19 +1,14 @@
 package lametro.realtime
 
-import java.time.Clock
-
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
 import lametro.realtime.Messages._
+import lametro.realtime.client.MetroApi
 
-class AgencyActor(agency: Agency) extends Actor with ActorLogging {
+private class AgencyActor(agency: Agency)(implicit metroApi: MetroApi) extends Actor with ActorLogging {
 
-  private var fleetActor: ActorRef = _
+  private val fleetActor: ActorRef = context.actorOf(FleetActor.props(agency), "fleet")
 
-  override def preStart(): Unit = {
-    fleetActor = context.actorOf(FleetActor.props(agency, Clock.systemDefaultZone()), "fleet")
-
-    log.info("Agency actor {} started", agency.id)
-  }
+  override def preStart(): Unit = log.info("Agency actor {} started", agency.id)
 
   override def postStop(): Unit = log.info("Agency actor {} stopped", agency.id)
 
@@ -23,12 +18,9 @@ class AgencyActor(agency: Agency) extends Actor with ActorLogging {
 
     case msg @ GetServicingVehicles(agency.id, _, _) =>
       fleetActor forward msg
-
-    case unknown =>
-      log.warning("Unhandled message: {}", unknown)
   }
 }
 
 object AgencyActor {
-  def props(agency: Agency): Props = Props(new AgencyActor(agency))
+  def props(agency: Agency)(implicit metroApi: MetroApi) = Props(new AgencyActor(agency))
 }

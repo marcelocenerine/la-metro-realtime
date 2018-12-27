@@ -1,9 +1,6 @@
 package lametro.realtime
 
-import java.time.{Clock, Instant}
-
 import akka.actor.{Actor, ActorLogging, Props}
-import akka.stream.ActorMaterializer
 import lametro.realtime.FleetActor._
 import lametro.realtime.Messages.{GetServicingVehicles, GetVehicles, NotInSync, RespondVehicles}
 import lametro.realtime.client.MetroApi
@@ -12,32 +9,26 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
-private class FleetActor(agency: Agency, clock: Clock) extends Actor with ActorLogging {
+private class FleetActor(agency: Agency)(implicit metroApi: MetroApi) extends Actor with ActorLogging {
 
   private implicit val system = context.system
   private implicit val ec = context.dispatcher
-  private implicit val materializer = ActorMaterializer()
-  private val metroApi = MetroApi()
-  private var lastRefresh: Option[Instant] = None
   private var vehiclesById = Map.empty[String, Vehicle]
+  private var cacheExpiryDeadline = Deadline.now
 
   override def preStart(): Unit = {
     system.scheduler.schedule(0 second, 10 seconds)(syncTimeout())
     log.info("Fleet actor {} started", agency.id)
   }
 
-  private def syncTimeout() =
-    metroApi.vehicles(agency).onComplete {
-      case Success(vehicles) =>
-        self ! SyncVehicles(vehicles)
-
-      case Failure(t) =>
-        log.error(t, "Error to fetch vehicles from Metro api")
-        self ! SyncFailure
-    }
+  private def syncTimeout(): Unit =
+    metroApi.vehicles(agency)
+      .onComplete {
+        case Success(vehicles) => self ! SyncVehicles(vehicles)
+        case Failure(t) => self ! SyncFailure(t)
+      }
 
   override def postStop(): Unit = {
-    materializer.shutdown()
     log.info("Fleet actor {} stopped", agency.id)
   }
 
@@ -48,34 +39,33 @@ private class FleetActor(agency: Agency, clock: Clock) extends Actor with ActorL
       syncVehicles(vehicles)
       context.become(receiveWhenSynced)
 
-    case SyncFailure => // ignore
+    case SyncFailure(t) =>
+      log.error(t, "Error fetching vehicles from the Metro api")
 
-    case GetVehicles(_) | GetServicingVehicles(_, _, _) =>
+    case _: GetVehicles | _: GetServicingVehicles =>
       sender() ! NotInSync
-
-    case unknown =>
-      log.warning("Unhandled message: {}", unknown)
   }
 
   private def receiveWhenSynced: Receive = {
     case SyncVehicles(vehicles) =>
       syncVehicles(vehicles)
 
-    case SyncFailure =>
-      if (needsResync) context.unbecome()
+    case SyncFailure(t) =>
+      log.error(t, "Error fetching vehicles from the Metro api")
+      if (cacheExpiryDeadline.isOverdue()) {
+        log.warning("Local cache is not in sync")
+        context.become(receiveWhenNotSynced)
+      }
 
     case GetVehicles(_) =>
       sender() ! RespondVehicles(vehiclesById.values.toList)
 
     case GetServicingVehicles(_, routeId, runId) =>
-      val vehicles = vehiclesById.values.filter { v =>
-          v.servicing.routeId == routeId &&
-            v.servicing.runId.fold(false)(_ == runId)
-        }.toList
-      sender() ! RespondVehicles(vehicles)
-
-    case unknown =>
-      log.warning("Unhandled message: {}", unknown)
+      val vehicles =
+        vehiclesById.values.filter { vehicle =>
+          vehicle.servicing.routeId == routeId && vehicle.servicing.runId.exists(_ == runId)
+        }
+      sender() ! RespondVehicles(vehicles.toList)
   }
 
   private def syncVehicles(vehicles: Iterable[Vehicle]) = {
@@ -89,22 +79,17 @@ private class FleetActor(agency: Agency, clock: Clock) extends Actor with ActorL
       }
     val removed = vehiclesById.size - (vehicles.size - added)
 
-    vehiclesById = vehicles.map(v => (v.id, v)).toMap
-    lastRefresh = Some(clock.instant())
+    vehiclesById = vehicles.map(vehicle => (vehicle.id, vehicle)).toMap
+    cacheExpiryDeadline = CacheMaxAge.fromNow
     log.info("Vehicles synced: added={}, removed={}, updated={}", added, removed, changed)
-  }
-
-  private def needsResync: Boolean = lastRefresh match {
-    case Some(instant) if !instant.plusMillis(MaxIntervalWithoutSync.toMillis).isBefore(clock.instant()) => false
-    case _ => true
   }
 }
 
 object FleetActor {
-  val MaxIntervalWithoutSync = 5 minutes
+  val CacheMaxAge = 5 minutes
 
-  def props(agency: Agency, clock: Clock): Props = Props(new FleetActor(agency, clock))
+  def props(agency: Agency)(implicit metroApi: MetroApi) = Props(new FleetActor(agency))
 
   private case class SyncVehicles(vehicles: Iterable[Vehicle])
-  private case object SyncFailure
+  private case class SyncFailure(t: Throwable)
 }

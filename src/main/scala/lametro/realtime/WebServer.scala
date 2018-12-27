@@ -8,6 +8,7 @@ import akka.pattern.{Backoff, BackoffSupervisor, ask}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
 import lametro.realtime.Messages._
+import lametro.realtime.client.MetroApi
 import lametro.realtime.json.PlayJsonOps._
 import lametro.realtime.json.Writes._
 
@@ -25,6 +26,7 @@ object WebServer {
     implicit val system = ActorSystem("la-metro-system")
     implicit val ec = system.dispatcher
     implicit val materializer = ActorMaterializer()
+    implicit val metroApi = MetroApi()
     implicit val askTimeout: Timeout = 3 seconds
 
     val metroService = system.actorOf(

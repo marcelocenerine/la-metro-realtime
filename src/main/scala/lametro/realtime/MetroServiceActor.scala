@@ -1,7 +1,6 @@
 package lametro.realtime
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
-import akka.stream.ActorMaterializer
 import lametro.realtime.Messages._
 import lametro.realtime.client.MetroApi
 
@@ -9,12 +8,10 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-class MetroServiceActor extends Actor with ActorLogging {
+private class MetroServiceActor()(implicit metroApi: MetroApi) extends Actor with ActorLogging {
 
   private implicit val system = context.system
   private implicit val ec = context.dispatcher
-  private implicit val materializer = ActorMaterializer()
-  private val metroApi = MetroApi()
   private var agencies: List[Agency] = _
   private var agencyActors: Map[String, ActorRef] = _
 
@@ -27,10 +24,7 @@ class MetroServiceActor extends Actor with ActorLogging {
     log.info("MetroService actor started")
   }
 
-  override def postStop(): Unit = {
-    materializer.shutdown()
-    log.info("MetroService actor stopped")
-  }
+  override def postStop(): Unit = log.info("MetroService actor stopped")
 
   override def receive: Receive = {
     case GetAgencies =>
@@ -38,9 +32,6 @@ class MetroServiceActor extends Actor with ActorLogging {
 
     case msg @ GetVehicles(agencyId) =>
       forwardOrReject(agencyId, msg)
-
-    case unknown =>
-      log.warning("Unhandled message: {}", unknown)
   }
 
   private def forwardOrReject(agencyId: String, msg: Any): Unit =
@@ -51,5 +42,5 @@ class MetroServiceActor extends Actor with ActorLogging {
 }
 
 object MetroServiceActor {
-  def props: Props = Props[MetroServiceActor]
+  def props()(implicit metroApi: MetroApi) = Props(new MetroServiceActor())
 }
