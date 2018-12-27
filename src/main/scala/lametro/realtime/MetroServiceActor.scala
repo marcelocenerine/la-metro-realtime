@@ -1,6 +1,7 @@
 package lametro.realtime
 
 import akka.actor.{Actor, ActorLogging, ActorRef, Props}
+import com.typesafe.config.Config
 import lametro.realtime.Messages._
 import lametro.realtime.client.MetroApi
 
@@ -8,7 +9,7 @@ import scala.concurrent.Await
 import scala.concurrent.duration._
 import scala.language.postfixOps
 
-private class MetroServiceActor()(implicit metroApi: MetroApi) extends Actor with ActorLogging {
+private class MetroServiceActor()(implicit metroApi: MetroApi, config: Config) extends Actor with ActorLogging {
 
   private implicit val system = context.system
   private implicit val ec = context.dispatcher
@@ -27,11 +28,8 @@ private class MetroServiceActor()(implicit metroApi: MetroApi) extends Actor wit
   override def postStop(): Unit = log.info("MetroService actor stopped")
 
   override def receive: Receive = {
-    case GetAgencies =>
-      sender() ! RespondAgencies(agencies)
-
-    case msg @ GetVehicles(agencyId) =>
-      forwardOrReject(agencyId, msg)
+    case GetAgencies => sender() ! RespondAgencies(agencies)
+    case msg @ GetVehicles(agencyId) => forwardOrReject(agencyId, msg)
   }
 
   private def forwardOrReject(agencyId: String, msg: Any): Unit =
@@ -42,5 +40,5 @@ private class MetroServiceActor()(implicit metroApi: MetroApi) extends Actor wit
 }
 
 object MetroServiceActor {
-  def props()(implicit metroApi: MetroApi) = Props(new MetroServiceActor())
+  def props()(implicit metroApi: MetroApi, config: Config) = Props(new MetroServiceActor())
 }

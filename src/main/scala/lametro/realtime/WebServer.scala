@@ -7,25 +7,24 @@ import akka.http.scaladsl.server.Directives._
 import akka.pattern.{Backoff, BackoffSupervisor, ask}
 import akka.stream.ActorMaterializer
 import akka.util.Timeout
+import com.typesafe.config.ConfigFactory
 import lametro.realtime.Messages._
 import lametro.realtime.client.MetroApi
 import lametro.realtime.json.PlayJsonOps._
 import lametro.realtime.json.Writes._
 
 import scala.concurrent._
-import scala.concurrent.duration.{Duration, _}
+import scala.concurrent.duration._
 import scala.io.StdIn
 import scala.language.postfixOps
 
 object WebServer {
 
-  val Interface = "localhost"
-  val Port = 8080
-
   def main(args: Array[String]): Unit = {
     implicit val system = ActorSystem("la-metro-system")
     implicit val ec = system.dispatcher
     implicit val materializer = ActorMaterializer()
+    implicit val config = ConfigFactory.load()
     implicit val metroApi = MetroApi()
     implicit val askTimeout: Timeout = 3 seconds
 
@@ -76,10 +75,11 @@ object WebServer {
       }
 
     val routes = staticRoutes ~ apiRoutes
+    val interface = config.getString("la-metro.http.interface")
+    val port = config.getInt("la-metro.http.port")
+    val bindingFuture = Http().bindAndHandle(routes, interface, port)
 
-    val bindingFuture = Http().bindAndHandle(routes, Interface, Port)
-
-    println(s"Server online at http://$Interface:$Port")
+    println(s"Server online at http://$interface:$port")
 
     Await.ready(bindingFuture.flatMap(_ => waitForShutdownSignal), Duration.Inf)
     bindingFuture.flatMap(_.unbind()).onComplete(_ => system.terminate())

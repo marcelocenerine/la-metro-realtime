@@ -1,23 +1,28 @@
 package lametro.realtime
 
 import akka.actor.{Actor, ActorLogging, Props}
+import com.typesafe.config.Config
 import lametro.realtime.FleetActor._
 import lametro.realtime.Messages.{GetServicingVehicles, GetVehicles, NotInSync, RespondVehicles}
 import lametro.realtime.client.MetroApi
+import lametro.realtime.config._
 
 import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Success}
 
-private class FleetActor(agency: Agency)(implicit metroApi: MetroApi) extends Actor with ActorLogging {
+private class FleetActor(agency: Agency)(implicit metroApi: MetroApi, config: Config)
+  extends Actor with ActorLogging {
 
+  private val syncInterval = config.getFiniteDuration("la-metro.fleet.sync-interval")
+  private val cacheMaxAge = config.getFiniteDuration("la-metro.fleet.cache-max-age")
   private implicit val system = context.system
   private implicit val ec = context.dispatcher
   private var vehiclesById = Map.empty[String, Vehicle]
   private var cacheExpiryDeadline = Deadline.now
 
   override def preStart(): Unit = {
-    system.scheduler.schedule(0 second, 10 seconds)(syncTimeout())
+    system.scheduler.schedule(0 second, syncInterval)(syncTimeout())
     log.info("Fleet actor {} started", agency.id)
   }
 
@@ -80,15 +85,13 @@ private class FleetActor(agency: Agency)(implicit metroApi: MetroApi) extends Ac
     val removed = vehiclesById.size - (vehicles.size - added)
 
     vehiclesById = vehicles.map(vehicle => (vehicle.id, vehicle)).toMap
-    cacheExpiryDeadline = CacheMaxAge.fromNow
+    cacheExpiryDeadline = cacheMaxAge.fromNow
     log.info("Vehicles synced: added={}, removed={}, updated={}", added, removed, changed)
   }
 }
 
 object FleetActor {
-  val CacheMaxAge = 5 minutes
-
-  def props(agency: Agency)(implicit metroApi: MetroApi) = Props(new FleetActor(agency))
+  def props(agency: Agency)(implicit metroApi: MetroApi, config: Config) = Props(new FleetActor(agency))
 
   private case class SyncVehicles(vehicles: Iterable[Vehicle])
   private case class SyncFailure(t: Throwable)
