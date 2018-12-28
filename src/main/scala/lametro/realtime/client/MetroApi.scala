@@ -16,12 +16,12 @@ import scala.concurrent.{Future, Promise}
 
 trait MetroApi {
   def agencies(): Future[List[Agency]]
-  def routes(agency: Agency): Future[List[Route]]
-  def runs(agency: Agency, route: Route): Future[List[Run]]
-  def vehicles(agency: Agency): Future[List[Vehicle]]
-  def stops(agency: Agency, route: Route): Future[List[Stop]]
-  def stops(agency: Agency, run: Run): Future[List[Stop]]
-  def predictions(agency: Agency, stop: Stop): Future[List[Stop]]
+  def routes(agencyId: AgencyId): Future[List[Route]]
+  def runs(agencyId: AgencyId, routeId: RouteId): Future[List[Run]]
+  def vehicles(agencyId: AgencyId): Future[List[Vehicle]]
+  def stops(agencyId: AgencyId, routeId: RouteId): Future[List[Stop]]
+  def stops(agencyId: AgencyId, routeId: RouteId, runId: RunId): Future[List[Stop]]
+  def predictions(agencyId: AgencyId, stopId: StopId): Future[List[Prediction]]
 }
 
 private class MetroApiImpl(implicit system: ActorSystem, materializer: ActorMaterializer, config: Config)
@@ -35,39 +35,39 @@ private class MetroApiImpl(implicit system: ActorSystem, materializer: ActorMate
       Unmarshal(entity).to[List[Agency]]
     }
 
-  override def routes(agency: Agency): Future[List[Route]] =
-    dispatchRequest(s"/agencies/${agency.id}/routes/").flatMap { entity =>
+  override def routes(agencyId: AgencyId): Future[List[Route]] =
+    dispatchRequest(s"/agencies/$agencyId/routes/").flatMap { entity =>
       Unmarshal(entity).to[Coll[Route]].map(_.items)
     }
 
-  override def runs(agency: Agency, route: Route): Future[List[Run]] =
-    dispatchRequest(s"/agencies/${agency.id}/routes/${route.id}/runs/")
+  override def runs(agencyId: AgencyId, routeId: RouteId): Future[List[Run]] =
+    dispatchRequest(s"/agencies/$agencyId/routes/$routeId/runs/")
       .flatMap { entity =>
         Unmarshal(entity).to[Coll[Run]]
-          .map(_.items.map(_.copy(id = route.id))) // bug in the api
+          .map(_.items.map(_.copy(routeId = routeId))) // bug in the api
       }
 
-  override def vehicles(agency: Agency): Future[List[Vehicle]] =
-    dispatchRequest(s"/agencies/${agency.id}/vehicles/").flatMap { entity =>
+  override def vehicles(agencyId: AgencyId): Future[List[Vehicle]] =
+    dispatchRequest(s"/agencies/$agencyId/vehicles/").flatMap { entity =>
       Unmarshal(entity).to[Coll[Vehicle]].map(_.items)
     }
 
-  override def stops(agency: Agency, route: Route): Future[List[Stop]] =
-    dispatchRequest(s"/agencies/${agency.id}/routes/${route.id}/sequence/")
+  override def stops(agencyId: AgencyId, routeId: RouteId): Future[List[Stop]] =
+    dispatchRequest(s"/agencies/$agencyId/routes/$routeId/sequence/")
       .flatMap { entity =>
         Unmarshal(entity).to[Coll[Stop]].map(_.items)
       }
 
-  override def stops(agency: Agency, run: Run): Future[List[Stop]] =
-    dispatchRequest(s"/agencies/${agency.id}/routes/${run.routeId}/runs/${run.id}/stops/")
+  override def stops(agencyId: AgencyId, routeId: RouteId, runId: RunId): Future[List[Stop]] =
+    dispatchRequest(s"/agencies/$agencyId/routes/$routeId/runs/$runId/stops/")
       .flatMap { entity =>
         Unmarshal(entity).to[Coll[Stop]].map(_.items)
       }
 
-  override def predictions(agency: Agency, stop: Stop): Future[List[Stop]] =
-    dispatchRequest(s"/agencies/${agency.id}/stops/${stop.id}/predictions/")
+  override def predictions(agencyId: AgencyId, stopId: StopId): Future[List[Prediction]] =
+    dispatchRequest(s"/agencies/$agencyId/stops/$stopId/predictions/")
       .flatMap { entity =>
-        Unmarshal(entity).to[Coll[Stop]].map(_.items)
+        Unmarshal(entity).to[Coll[Prediction]].map(_.items)
       }
 
   private def dispatchRequest(uri: String): Future[ResponseEntity] = {

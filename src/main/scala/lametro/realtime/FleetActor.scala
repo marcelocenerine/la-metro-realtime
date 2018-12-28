@@ -27,7 +27,7 @@ private class FleetActor(agency: Agency)(implicit metroApi: MetroApi, config: Co
   }
 
   private def syncTimeout(): Unit =
-    metroApi.vehicles(agency)
+    metroApi.vehicles(agency.id)
       .onComplete {
         case Success(vehicles) => self ! SyncVehicles(vehicles)
         case Failure(t) => self ! SyncFailure(t)

@@ -26,7 +26,7 @@ private[client] object Reads {
   implicit val predictionReads: Reads[Prediction] = (
     (JsPath \ "route_id").read[String] and
       (JsPath \ "run_id").read[String] and
-      (JsPath \ "minutes").read[Int]
+      (JsPath \ "seconds").read[Long]
     ) (Prediction.apply _)
 
   implicit val vehicleReads: Reads[Vehicle] = {
