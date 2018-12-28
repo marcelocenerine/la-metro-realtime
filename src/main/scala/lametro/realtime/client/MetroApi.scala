@@ -43,8 +43,7 @@ private class MetroApiImpl(implicit system: ActorSystem, materializer: ActorMate
   override def runs(agencyId: AgencyId, routeId: RouteId): Future[List[Run]] =
     dispatchRequest(s"/agencies/$agencyId/routes/$routeId/runs/")
       .flatMap { entity =>
-        Unmarshal(entity).to[Coll[Run]]
-          .map(_.items.map(_.copy(routeId = routeId))) // bug in the api
+        Unmarshal(entity).to[Coll[Run]].map(_.items)
       }
 
   override def vehicles(agencyId: AgencyId): Future[List[Vehicle]] =

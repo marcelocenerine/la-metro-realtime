@@ -110,8 +110,8 @@ class MetroApiSpec extends TestKit(ActorSystem("test"))
     withMetroApi(s"GET /agencies/$agencyId/routes/$routeId/runs/", jsonResponse) { client =>
       whenReady(client.runs(agencyId, routeId)) { runs =>
         runs shouldBe List(
-          Run(id = "4_276_0", routeId = "4", name = "East to Downtown LA - Broadway-Venice", direction = "East"),
-          Run(id = "4_260_1", routeId = "4", name = "West to West LA - Sepulveda Bl", direction = "West")
+          Run(id = "4_276_0", name = "East to Downtown LA - Broadway-Venice", direction = "East"),
+          Run(id = "4_260_1", name = "West to West LA - Sepulveda Bl", direction = "West")
         )
       }
     }

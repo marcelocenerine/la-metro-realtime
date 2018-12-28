@@ -18,7 +18,6 @@ private[client] object Reads {
 
   implicit val runReads: Reads[Run] = (
     (JsPath \ "id").read[String] and
-      (JsPath \ "route_id").read[String] and
       (JsPath \ "display_name").read[String] and
       (JsPath \ "direction_name").read[String]
     ) (Run.apply _)
