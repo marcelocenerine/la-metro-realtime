@@ -11,7 +11,6 @@ private class AgencyActor(agency: Agency)(implicit metroApi: MetroApi, config: C
   private val fleetActor: ActorRef = context.actorOf(FleetActor.props(agency), "fleet")
 
   override def preStart(): Unit = log.info("Agency actor {} started", agency.id)
-
   override def postStop(): Unit = log.info("Agency actor {} stopped", agency.id)
 
   override def receive: Receive = {
